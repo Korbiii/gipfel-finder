@@ -1,0 +1,8 @@
+cache.db
+__pycache__/
+*.pyc
+.venv/
+venv/
+daten/*.pdf
+daten/*.txt
+daten/gtfs.zip

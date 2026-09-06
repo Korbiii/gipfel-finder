@@ -1,0 +1,5 @@
+München Hbf             7:04    7:34    8:04    8:34
+Holzkirchen             7:36    8:06    8:36    9:06
+Fischhausen-Neuhaus             7:44    8:14    8:44
+Schliersee              7:41    8:11    8:41    9:11
+Bayrischzell            7:51    8:21    8:51    9:21
