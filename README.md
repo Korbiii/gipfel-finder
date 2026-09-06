@@ -172,7 +172,13 @@ python -m pipeline.export_web        # schreibt docs/ (HTML, daten.json, CSS/JS,
 git add docs && git commit -m "Web-Export aktualisiert" && git push
 ```
 
-Danach in GitHub: **Settings → Pages → „Deploy from a branch“ → `main` + `/docs`**.
+Danach in GitHub: **Settings → Pages → „Deploy from a branch“ → `main` + `/docs`**
+(gilt für öffentliche Repos auf dem Free-Plan; bei privaten Repos wird ein
+bezahlter Plan benötigt).
+
+> 🌐 **Live:** Der statische Export dieses Repos läuft unter
+> <https://Korbiii.github.io/gipfel-finder/>.
+
 Nach jeder Aktualisierung von Fahrplan/Gipfeln/Touren den Export erneut ausführen.
 
 > **Achtung:** GitHub Pages auf einem **privaten** Repo erfordert einen bezahlten
