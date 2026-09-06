@@ -8,6 +8,15 @@ dann ignoriert (nicht gelöscht), bis wieder "Neu suchen erzwingen" gedrückt wi
 
 from __future__ import annotations
 
+import os
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()  # liest ".env" (falls vorhanden) in os.environ ein; nie committet
+except ImportError:
+    pass  # python-dotenv ist optional – ohne ".env"-Datei einfach echte Env-Vars nutzen
+
 # ---------------------------------------------------------------------------
 # Stufe 1: Startbahnhof
 # ---------------------------------------------------------------------------
@@ -84,8 +93,10 @@ OVERPASS_BATCH_SIZE = 40
 # ---------------------------------------------------------------------------
 # Falls leer, werden ausschließlich Fallback-Suchlinks genutzt
 # (Komoot, Outdooractive-Web, Alpenverein aktiv) – kein Absturz.
-# Wenn du einen Key hast: hier eintragen, z. B.  OUTDOORACTIVE_API_KEY = "dein-key"
-OUTDOORACTIVE_API_KEY = ""   # leer = nur Fallback-Links
+# Key NIE hier im Klartext eintragen (Repo ist öffentlich)! Stattdessen die
+# Umgebungsvariable OUTDOORACTIVE_API_KEY setzen, z. B. über eine lokale
+# ".env"-Datei (siehe .env.example – ".env" wird von Git ignoriert).
+OUTDOORACTIVE_API_KEY = os.environ.get("OUTDOORACTIVE_API_KEY", "")
 OUTDOORACTIVE_API_BASE = "https://api.outdooractive.com/api"
 OUTDOORACTIVE_TOUR_RADIUS_M = 15_000
 OUTDOORACTIVE_TIMEOUT_S = 20

@@ -1,0 +1,70 @@
+name: Statischen Export bauen & auf GitHub Pages veröffentlichen
+
+# Baut den statischen Snapshot (pipeline/export_web.py) IMMER frisch aus dem
+# aktuellen Cache/Fahrplan und deployt ihn – so kann "Export vergessen" beim
+# manuellen Pushen nie mehr passieren. docs/ liegt bewusst NICHT im Git
+# (siehe .gitignore); die CI erzeugt es bei jedem Lauf neu.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "daten/fahrplan.csv"
+      - "config.py"
+      - "pipeline/**"
+      - "templates/**"
+      - "static/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}       # manueller Start über den "Actions"-Tab
+  schedule:
+    - cron: "0 3 1 * *"       # 1x monatlich (Gipfel/Touren-Cache leicht auffrischen)
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: Pipeline befüllen (Cache aus daten/fahrplan.csv aufbauen)
+        env:
+          OUTDOORACTIVE_API_KEY: ${{ secrets.OUTDOORACTIVE_API_KEY }}
+        run: |
+          python -m pipeline.fahrplan
+          python -m pipeline.hoehen
+          python -m pipeline.gipfel
+          python -m pipeline.touren
+
+      - name: Statischen Export erzeugen
+        run: python -m pipeline.export_web
+
+      - name: Pages konfigurieren
+        uses: actions/configure-pages@v5
+
+      - name: Artefakt hochladen
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Auf GitHub Pages deployen
+        id: deployment
+        uses: actions/deploy-pages@v4

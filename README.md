@@ -157,8 +157,14 @@ Pipeline die Vorstufe automatisch nach.
 | Gipfel-Radius | `GIPFEL_RADIUS_M` | Luftlinie um den Bahnhof (Standard: 8000 m) |
 | Gipfel-Batching | `OVERPASS_BATCH_SIZE` | Bahnhöfe je Overpass-Anfrage (Standard: 40, 1 = einzeln) |
 | Bahnhofs-Höhen | `ELEVATION_API_URL`, `ELEVATION_BATCH_SIZE` | Open-Meteo-Elevation (gratis, kein Key) |
-| Outdooractive | `OUTDOORACTIVE_API_KEY` bzw. `OUTDOORACTIVE_API_BASE` | Tour-API (optional) |
+| Outdooractive | Env-Var `OUTDOORACTIVE_API_KEY` bzw. `config.OUTDOORACTIVE_API_BASE` | Tour-API (optional) |
 | Cache-Datei | `CACHE_DB_PATH` | Pfad der SQLite-Datenbank |
+
+> **Outdooractive-Key setzen (optional):** Nie direkt in `config.py` eintragen
+> (das Repo ist öffentlich!). Stattdessen `.env.example` nach `.env` kopieren
+> und dort den Key eintragen – `.env` wird von Git ignoriert und beim Start
+> automatisch geladen (`python-dotenv`). Alternativ die Umgebungsvariable
+> `OUTDOORACTIVE_API_KEY` direkt im System/Deployment setzen.
 
 ## Auf GitHub Pages veröffentlichen (statischer Export)
 

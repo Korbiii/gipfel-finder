@@ -6,3 +6,6 @@ venv/
 daten/*.pdf
 daten/*.txt
 daten/gtfs.zip
+.env
+.pytest_cache/
+docs/
