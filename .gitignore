@@ -9,3 +9,5 @@ daten/gtfs.zip
 .env
 .pytest_cache/
 docs/
+server_log.txt
+server_err.txt

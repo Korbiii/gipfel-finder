@@ -6,6 +6,7 @@ const zustand = {
   daten: null,
   sortSpalte: "hoehe",
   sortAuf: false,
+  sortiert: false,
   filter: {
     suche: "",
     min_hoehe: null,
@@ -42,6 +43,9 @@ const EL = {
   fortschrittBox: document.getElementById("fortschritt-box"),
   fortschrittFuellung: document.getElementById("fortschritt-fuellung"),
   fortschrittText: document.getElementById("fortschritt-text"),
+  kopf: document.getElementById("kopf"),
+  btnThema: document.getElementById("btn-thema"),
+  filterZaehler: document.getElementById("filter-zaehler"),
   toast: document.getElementById("toast"),
 };
 
@@ -65,11 +69,14 @@ function esc(text) {
 function rendernStatus() {
   const stufen = zustand.daten.stufen;
   const namen = { fahrplan: "Fahrplan", hoehen: "Höhen", gipfel: "Gipfel", touren: "Touren" };
+  const iconen = { fahrplan: "🚆", hoehen: "📏", gipfel: "⛰️", touren: "🥾" };
   const chips = Object.entries(stufen).map(([schluessel, st]) => {
     const chip = document.createElement("span");
     chip.className = "chip " + (st.vorhanden ? "chip-ok" : "chip-leer");
-    chip.textContent =
+    chip.title =
       `${namen[schluessel]}: ${st.vorhanden ? "Zuletzt aktualisiert " + st.zuletzt : "noch keine Daten"}`;
+    chip.textContent =
+      `${iconen[schluessel] || "•"} ${namen[schluessel]}: ${st.vorhanden ? "aktuell" : "noch keine Daten"}`;
     return chip;
   });
   EL.status.replaceChildren(...chips);
@@ -113,12 +120,25 @@ function nummernWert(wert) {
   return Number.isFinite(n) ? n : null;
 }
 
+function aktualisiereFilterZaehler() {
+  const f = zustand.filter;
+  const aktiv =
+    Number(Boolean(f.suche)) +
+    Number(f.min_hoehe != null) +
+    Number(f.max_fahrzeit != null) +
+    Number(f.min_aufstieg != null);
+  EL.filterZaehler.textContent = aktiv === 1 ? "1 Filter aktiv" : `${aktiv} Filter aktiv`;
+  EL.filterZaehler.hidden = aktiv === 0;
+  EL.filterZuruecksetzen.disabled = aktiv === 0;
+}
+
 function filterAnwenden() {
   zustand.filter.suche = (EL.filterSuche.value || "").toLowerCase().trim();
   zustand.filter.min_hoehe = nummernWert(EL.filterMinHoehe.value);
   zustand.filter.max_fahrzeit = nummernWert(EL.filterMaxFahrzeit.value);
   zustand.filter.min_aufstieg = nummernWert(EL.filterMinAufstieg.value);
   rendernTabelle();
+  aktualisiereFilterZaehler();
 }
 
 function zuruecksetzenFilter() {
@@ -149,6 +169,7 @@ function gefilterteGipfel() {
 
 function rendernTabelle() {
   const gipfel = gefilterteGipfel();
+  markiereSortierung();
   const auf = zustand.sortAuf ? -1 : 1;
   gipfel.sort((a, b) => {
     const va = spaltenwert(a, zustand.sortSpalte);
@@ -158,6 +179,8 @@ function rendernTabelle() {
     if (vb === -1) return -1;
     return va < vb ? -auf : auf;
   });
+
+  const maxAufstieg = Math.max(1, ...gipfel.map((g) => g.aufstieg_m || 0));
 
   EL.koerper.textContent = "";
   if (!gipfel.length) {
@@ -174,38 +197,61 @@ function rendernTabelle() {
     const tr = document.createElement("tr");
 
     const tdName = document.createElement("td");
+    tdName.dataset.label = "Gipfel";
     tdName.textContent = g.name;
     tr.appendChild(tdName);
 
     const tdHoehe = document.createElement("td");
     tdHoehe.className = "zahl";
+    tdHoehe.dataset.label = "Höhe (m)";
     tdHoehe.textContent = g.hoehe_m != null ? g.hoehe_m.toLocaleString("de-DE") : "—";
     tr.appendChild(tdHoehe);
 
     const tdBahnhof = document.createElement("td");
+    tdBahnhof.dataset.label = "Ausgangsbahnhof";
     tdBahnhof.textContent = g.bahnhof_name || "—";
     tr.appendChild(tdBahnhof);
 
     const tdStartHoehe = document.createElement("td");
     tdStartHoehe.className = "zahl";
+    tdStartHoehe.dataset.label = "Start-Höhe (m)";
     tdStartHoehe.textContent = g.bahnhof_hoehe_m != null
       ? g.bahnhof_hoehe_m.toLocaleString("de-DE") : "—";
     tr.appendChild(tdStartHoehe);
 
     const tdAufstieg = document.createElement("td");
     tdAufstieg.className = "zahl";
-    tdAufstieg.textContent = g.aufstieg_m != null
+    tdAufstieg.dataset.label = "Höhenmeter";
+    const aufstiegZone = document.createElement("span");
+    aufstiegZone.className = "aufstieg-zelle";
+    const aufstiegText = document.createElement("span");
+    aufstiegText.textContent = g.aufstieg_m != null
       ? `+${g.aufstieg_m.toLocaleString("de-DE")} m` : "—";
+    aufstiegZone.appendChild(aufstiegText);
+    if (g.aufstieg_m != null) {
+      const balken = document.createElement("span");
+      balken.className = "balken";
+      balken.setAttribute("aria-hidden", "true");
+      const fuellung = document.createElement("span");
+      fuellung.className = "balken-fuellung";
+      const anteil = Math.max(4, Math.min(100, Math.round((g.aufstieg_m / maxAufstieg) * 100)));
+      fuellung.style.width = anteil + "%";
+      balken.appendChild(fuellung);
+      aufstiegZone.appendChild(balken);
+    }
+    tdAufstieg.appendChild(aufstiegZone);
     if (g.aufstieg_m != null && g.aufstieg_m >= 1000) tdAufstieg.classList.add("stark");
     tr.appendChild(tdAufstieg);
 
     const tdFahrt = document.createElement("td");
     tdFahrt.className = "zahl";
+    tdFahrt.dataset.label = "Fahrtzeit";
     tdFahrt.textContent = g.fahrzeit_min != null ? `${g.fahrzeit_min} Min.` : "—";
     tr.appendChild(tdFahrt);
 
     const tdTouren = document.createElement("td");
     tdTouren.className = "touren";
+    tdTouren.dataset.label = "Tourvorschläge";
     for (const t of g.touren || []) {
       const a = document.createElement("a");
       a.href = t.url;
@@ -230,17 +276,33 @@ for (const el of [EL.filterSuche, EL.filterMinHoehe, EL.filterMaxFahrzeit, EL.fi
 }
 EL.filterZuruecksetzen.addEventListener("click", zuruecksetzenFilter);
 
-/* Sortierklick an den Tabellenköpfen */
+/* Sortieren per Klick oder Tastatur (Enter/Leertaste) an den Tabellenköpfen */
+function sortierenNach(spalte) {
+  zustand.sortiert = true;
+  if (zustand.sortSpalte === spalte) {
+    zustand.sortAuf = !zustand.sortAuf;
+  } else {
+    zustand.sortSpalte = spalte;
+    zustand.sortAuf = ["hoehe", "aufstieg", "starthoehe"].includes(spalte);
+  }
+  rendernTabelle();
+}
+
+function markiereSortierung() {
+  if (!zustand.sortiert) return;
+  document.querySelectorAll("th[data-spalte]").forEach((th) => {
+    th.classList.toggle("sortiert-auf", th.dataset.spalte === zustand.sortSpalte && zustand.sortAuf);
+    th.classList.toggle("sortiert-ab", th.dataset.spalte === zustand.sortSpalte && !zustand.sortAuf);
+  });
+}
+
 document.querySelectorAll("th[data-spalte]").forEach((th) => {
-  th.addEventListener("click", () => {
-    const spalte = th.dataset.spalte;
-    if (zustand.sortSpalte === spalte) {
-      zustand.sortAuf = !zustand.sortAuf;
-    } else {
-      zustand.sortSpalte = spalte;
-      zustand.sortAuf = ["hoehe", "aufstieg", "starthoehe"].includes(spalte);
+  th.addEventListener("click", () => sortierenNach(th.dataset.spalte));
+  th.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      sortierenNach(th.dataset.spalte);
     }
-    rendernTabelle();
   });
 });
 /* ------------------------------------------------------------------ */
@@ -286,6 +348,45 @@ EL.toggleKarte.addEventListener("change", () => {
   EL.karte.hidden = !EL.toggleKarte.checked;
   if (!EL.karte.hidden && zustand.karte) zustand.karte.invalidateSize();
 });
+
+/* ------------------------------------------------------------------ */
+/* Sticky-Header (Schatten beim Scrollen) & Design hell/dunkel         */
+/* ------------------------------------------------------------------ */
+
+function kopfScrollEffekt() {
+  if (!EL.kopf) return;
+  EL.kopf.classList.toggle("kopf-gescrollt", window.scrollY > 4);
+}
+
+window.addEventListener("scroll", kopfScrollEffekt, { passive: true });
+kopfScrollEffekt();
+
+function aktuellesThema() {
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+}
+
+function themenAnwenden() {
+  if (!EL.btnThema) return;
+  const dunkel = aktuellesThema() === "dark";
+  EL.btnThema.textContent = dunkel ? "☀️" : "🌙";
+  EL.btnThema.setAttribute("aria-label",
+    dunkel ? "Helles Design aktivieren" : "Dunkles Design aktivieren");
+  EL.btnThema.title = dunkel ? "Helles Design aktivieren" : "Dunkles Design aktivieren";
+  const meta = document.getElementById("theme-farbe");
+  if (meta) meta.setAttribute("content", dunkel ? "#0a301f" : "#0f4630");
+  if (zustand.karte) zustand.karte.invalidateSize();  // Leaflet-Overlays neu zeichnen
+}
+
+if (EL.btnThema) {
+  EL.btnThema.addEventListener("click", () => {
+    const neu = aktuellesThema() === "dark" ? "light" : "dark";
+    if (neu === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    else document.documentElement.removeAttribute("data-theme");
+    try { localStorage.setItem("gipfel-thema", neu); } catch (e) { /* Speicher blockiert */ }
+    themenAnwenden();
+  });
+  themenAnwenden();
+}
 
 /* ------------------------------------------------------------------ */
 /* Neusuche erzwingen (Bestätigung -> Job -> Fortschritt)             */
@@ -368,7 +469,9 @@ function pollJob(jobId) {
 let toastTimer = null;
 
 function toast(text, istFehler) {
-  EL.toast.textContent = text;
+  EL.toast.innerHTML =
+    `<span data-toast-icon aria-hidden="true">${istFehler ? "⚠️" : "✅"}</span>` +
+    `<span>${esc(text)}</span>`;
   EL.toast.className = "toast" + (istFehler ? " toast-fehler" : " toast-ok");
   EL.toast.hidden = false;
   clearTimeout(toastTimer);
@@ -376,6 +479,8 @@ function toast(text, istFehler) {
     EL.toast.hidden = true;
   }, 5000);
 }
+
+aktualisiereFilterZaehler();
 
 ladeDaten().catch((fehler) => {
   EL.ladehinweis.textContent = `Fehler beim Laden der Daten: ${fehler.message}`;

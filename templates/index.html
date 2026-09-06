@@ -4,50 +4,98 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Gipfel-Finder · {{ config.START_STATION['name'] }}</title>
+  <meta name="theme-color" id="theme-farbe" content="#0f4630">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>
+    /* Theme vor dem ersten Paint setzen, damit kein helles Aufleuchten (FOUC) entsteht. */
+    (function () {
+      var gespeichert = null;
+      try { gespeichert = localStorage.getItem("gipfel-thema"); } catch (e) {}
+      var dunkel = gespeichert === "dark" ||
+        (gespeichert !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      if (dunkel) document.documentElement.setAttribute("data-theme", "dark");
+    })();
+  </script>
 </head>
 <body>
 
-<header class="kopf">
+<header class="kopf" id="kopf">
   <div class="kopf-titel">
-    <h1>⛰️ Gipfel-Finder</h1>
-    <p class="untertitel">
-      Gipfel erreichbar in bis zu <strong>{{ config.MAX_FAHRZEIT_MINUTEN }} Minuten</strong> Bahnfahrt
-      ab <strong>{{ config.START_STATION['name'] }}</strong> ·
-      Radius {{ config.GIPFEL_RADIUS_M // 1000 }} km um den Bahnhof ·
-      {% if STATISCH %}Datenstand: <code>daten.json</code> (statischer Export){% else %}Fahrplan aus <code>{{ config.FAHRPLAN_CSV }}</code>{% endif %}
-    </p>
+    <div class="badge-titel" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m8 3 4 8 5-5 5 15H2L8 3z"/>
+      </svg>
+    </div>
+    <div class="kopf-texte">
+      <h1>Gipfel-Finder</h1>
+      <p class="untertitel">
+        Gipfel erreichbar in bis zu <strong>{{ config.MAX_FAHRZEIT_MINUTEN }} Minuten</strong> Bahnfahrt
+        ab <strong>{{ config.START_STATION['name'] }}</strong> ·
+        Radius {{ config.GIPFEL_RADIUS_M // 1000 }} km um den Bahnhof ·
+        {% if STATISCH %}Datenstand: <code>daten.json</code> (statischer Export){% else %}Fahrplan aus <code>{{ config.FAHRPLAN_CSV }}</code>{% endif %}
+      </p>
+    </div>
   </div>
   <div class="kopf-aktionen">
     <div class="cache-status" id="cache-status"></div>
-    <button id="btn-neusuchen" class="primary" type="button"{% if STATISCH %} hidden{% endif %}>🔁 Neu suchen erzwingen</button>
+    <div class="kopf-knopfzeile">
+      <button id="btn-thema" class="thema-button" type="button"
+              aria-label="Dunkles Design aktivieren" title="Design umschalten (hell/dunkel)">🌙</button>
+      <button id="btn-neusuchen" class="primary" type="button"{% if STATISCH %} hidden{% endif %}>🔁 Neu suchen erzwingen</button>
+    </div>
   </div>
 </header>
 
 <main>
   <div class="leiste">
     <label class="schalter"><input type="checkbox" id="toggle-karte" checked> Karte anzeigen</label>
-    <span id="summe" class="summe"></span>
+    <span id="summe" class="summe" aria-live="polite"></span>
   </div>
 
-  <div id="warnungen" class="warnungen" hidden></div>
-  <div id="ladehinweis" class="ladehinweis" hidden></div>
+  <div id="warnungen" class="warnungen" role="status" aria-live="polite" hidden></div>
+  <div id="ladehinweis" class="ladehinweis" role="status" aria-live="polite" hidden></div>
 
   <section id="karte" class="karte" hidden></section>
 
-  <div class="filter-leiste" id="filter-leiste">
-    <input id="filter-suche" type="search" placeholder="🔍 Nach Gipfel oder Bahnhof suchen …" autocomplete="off">
-    <label class="filter-feld">Min. Höhe
-      <input id="filter-min-hoehe" type="number" min="0" step="50" placeholder="0">
+  <div class="filter-leiste" id="filter-leiste" aria-label="Filter für die Gipfelliste">
+    <label class="filter-feld">
+      <span class="feld-label">Suche</span>
+      <span class="suchfeld">
+        <span class="feld-icon" aria-hidden="true">🔍</span>
+        <input id="filter-suche" type="search" placeholder="Nach Gipfel oder Bahnhof suchen …" autocomplete="off">
+      </span>
     </label>
-    <label class="filter-feld">Max. Fahrtzeit
-      <input id="filter-max-fahrzeit" type="number" min="0" step="10" placeholder="180">
+    <label class="filter-feld">
+      <span class="feld-label">Min. Höhe (m)</span>
+      <span class="zahlenfeld">
+        <span class="feld-icon" aria-hidden="true">📏</span>
+        <input id="filter-min-hoehe" type="number" min="0" step="50" placeholder="0">
+      </span>
     </label>
-    <label class="filter-feld">Min. Höhenmeter
-      <input id="filter-min-aufstieg" type="number" min="0" step="100" placeholder="0">
+    <label class="filter-feld">
+      <span class="feld-label">Max. Fahrtzeit</span>
+      <span class="zahlenfeld">
+        <span class="feld-icon" aria-hidden="true">🚆</span>
+        <input id="filter-max-fahrzeit" type="number" min="0" step="10" placeholder="180">
+      </span>
     </label>
-    <button id="filter-zuruecksetzen" class="sekundaer" type="button">Zurücksetzen</button>
+    <label class="filter-feld">
+      <span class="feld-label">Min. Höhenmeter</span>
+      <span class="zahlenfeld">
+        <span class="feld-icon" aria-hidden="true">🧗</span>
+        <input id="filter-min-aufstieg" type="number" min="0" step="100" placeholder="0">
+      </span>
+    </label>
+    <div class="filter-aktionen">
+      <span id="filter-zaehler" class="filter-zaehler" hidden></span>
+      <button id="filter-zuruecksetzen" class="sekundaer" type="button" disabled>Zurücksetzen</button>
+    </div>
   </div>
 
   <div class="tabelle-rahmen">
@@ -81,12 +129,32 @@
     <h2>Neu suchen erzwingen?</h2>
     <p class="modal-hinweis">Das kann je nach Anzahl der Bahnhöfe und Gipfel mehrere Minuten dauern.
        Wähle, welche Stufe neu geladen werden soll.</p>
-    <div class="stufen-wahl">
-      <label><input type="radio" name="stufe" value="alle" checked> Alles neu laden</label>
-      <label><input type="radio" name="stufe" value="fahrplan"> Nur Fahrplan (Stufe 1)</label>
-      <label><input type="radio" name="stufe" value="hoehen"> Nur Bahnhofshöhen (Stufe 1b)</label>
-      <label><input type="radio" name="stufe" value="gipfel"> Nur Gipfel (Stufe 2)</label>
-      <label><input type="radio" name="stufe" value="touren"> Nur Touren (Stufe 3)</label>
+    <div class="stufen-wahl" role="radiogroup" aria-label="Stufe für die Neusuche">
+      <label class="stufen-option">
+        <input type="radio" name="stufe" value="alle" checked>
+        <span class="stufen-icon" aria-hidden="true">♻️</span>
+        <span class="stufen-text"><strong>Alles neu laden</strong><small>Alle vier Stufen komplett neu abrufen</small></span>
+      </label>
+      <label class="stufen-option">
+        <input type="radio" name="stufe" value="fahrplan">
+        <span class="stufen-icon" aria-hidden="true">🚆</span>
+        <span class="stufen-text"><strong>Nur Fahrplan</strong><small>Stufe 1 – erreichbare Bahnhöfe</small></span>
+      </label>
+      <label class="stufen-option">
+        <input type="radio" name="stufe" value="hoehen">
+        <span class="stufen-icon" aria-hidden="true">📏</span>
+        <span class="stufen-text"><strong>Nur Bahnhofshöhen</strong><small>Stufe 1b – Höhen nachladen</small></span>
+      </label>
+      <label class="stufen-option">
+        <input type="radio" name="stufe" value="gipfel">
+        <span class="stufen-icon" aria-hidden="true">⛰️</span>
+        <span class="stufen-text"><strong>Nur Gipfel</strong><small>Stufe 2 – Overpass-Suche</small></span>
+      </label>
+      <label class="stufen-option">
+        <input type="radio" name="stufe" value="touren">
+        <span class="stufen-icon" aria-hidden="true">🥾</span>
+        <span class="stufen-text"><strong>Nur Touren</strong><small>Stufe 3 – Tourvorschläge</small></span>
+      </label>
     </div>
     <div class="fortschritt-box" id="fortschritt-box" hidden>
       <div class="fortschritt-balken"><div id="fortschritt-fuellung"></div></div>
@@ -99,7 +167,7 @@
   </div>
 </div>
 
-<div id="toast" class="toast" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script>window.STATISCH = {% if STATISCH %}true{% else %}false{% endif %};</script>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
