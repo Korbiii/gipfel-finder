@@ -23,12 +23,12 @@ import config
 from pipeline import cache
 from pipeline.fahrplan import fetch_stationen
 from pipeline.gipfel import fetch_gipfel
+from pipeline.daten import api_daten as daten_api, stufen_status
 from pipeline.hoehen import fetch_hoehen
 from pipeline.touren import fetch_touren
 
 app = Flask(__name__)
 
-STUFEN = ("fahrplan", "hoehen", "gipfel", "touren")
 JOBS: dict[str, dict] = {}
 
 
@@ -37,47 +37,13 @@ JOBS: dict[str, dict] = {}
 # ---------------------------------------------------------------------------
 
 def _stufen_status() -> dict:
-    """Vorhanden + "Zuletzt aktualisiert" pro Stufe für die aktuelle Konfiguration."""
-    return {
-        s: {
-            "vorhanden": cache.stage_filled(s),
-            "zuletzt": cache.human_ago(cache.get_last_fetched(s)),
-            "warnungen": cache.load_warnings(s),
-        }
-        for s in STUFEN
-    }
+    """Vorhanden + „Zuletzt aktualisiert“ pro Stufe (Logik siehe pipeline.daten)."""
+    return stufen_status()
 
 
 def _api_daten() -> dict:
-    bahnhoefe = cache.load_fahrplan()
-    gipfel = cache.load_gipfel()
-    touren = cache.load_touren()
-    bahnhof_hoehe = {b["station_id"]: b.get("hoehe_m") for b in bahnhoefe}
-    for g in gipfel:
-        g["touren"] = touren.get(g["osm_id"], [])
-        g["bahnhof_hoehe_m"] = bahnhof_hoehe.get(g.get("bahnhof_id"))
-        if g.get("hoehe_m") is not None and g["bahnhof_hoehe_m"] is not None:
-            # grobe Abschätzung der Höhenmeter (Luftlinie Bahnhof → Gipfel)
-            g["aufstieg_m"] = max(0, int(round(g["hoehe_m"] - g["bahnhof_hoehe_m"])))
-        else:
-            g["aufstieg_m"] = None
-    return {
-        "konfig": {
-            "start_name": config.START_STATION["name"],
-            "max_fahrzeit_min": config.MAX_FAHRZEIT_MINUTEN,
-            "gipfel_radius_km": config.GIPFEL_RADIUS_M // 1000,
-            "fahrplan_csv": config.FAHRPLAN_CSV,
-            "oa_key_aktiv": bool(config.OUTDOORACTIVE_API_KEY),
-        },
-        "stufen": _stufen_status(),
-        "bahnhoefe": bahnhoefe,
-        "summen": {
-            "fahrplan": len(bahnhoefe),
-            "gipfel": len(gipfel),
-            "hoehen": sum(1 for b in bahnhoefe if b.get("hoehe_m") is not None),
-        },
-        "gipfel": gipfel,
-    }
+    """Bereitgestellte Daten für die UI – Logik siehe pipeline.daten."""
+    return daten_api()
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +95,7 @@ def _job_ausfuehren(job_id: str, stufe: str) -> None:
 
 @app.route("/")
 def index():
-    return render_template("index.html", config=config, stufen=_stufen_status())
+    return render_template("index.html", config=config, stufen=stufen_status())
 
 
 @app.route("/api/daten")

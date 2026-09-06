@@ -160,6 +160,25 @@ Pipeline die Vorstufe automatisch nach.
 | Outdooractive | `OUTDOORACTIVE_API_KEY` bzw. `OUTDOORACTIVE_API_BASE` | Tour-API (optional) |
 | Cache-Datei | `CACHE_DB_PATH` | Pfad der SQLite-Datenbank |
 
+## Auf GitHub Pages veröffentlichen (statischer Export)
+
+GitHub Pages kann keinen Flask-Server ausführen – es werden aber einmalig
+**statische Dateien** exportiert, die dann überall (Pages, Cloudflare Pages,
+Netlify, …) gehostet werden können. Alles funktioniert danach im Browser weiter
+(Karte, Filter, Sortierung), nur „Neu suchen erzwingen“ entfällt:
+
+```bash
+python -m pipeline.export_web        # schreibt docs/ (HTML, daten.json, CSS/JS, fahrplan.csv)
+git add docs && git commit -m "Web-Export aktualisiert" && git push
+```
+
+Danach in GitHub: **Settings → Pages → „Deploy from a branch“ → `main` + `/docs`**.
+Nach jeder Aktualisierung von Fahrplan/Gipfeln/Touren den Export erneut ausführen.
+
+> **Achtung:** GitHub Pages auf einem **privaten** Repo erfordert einen bezahlten
+> Plan. Auf dem Free-Plan wird die Seite nur mit einem **öffentlichen** Repo
+> veröffentlicht.
+
 ## Fehlerbehandlung
 
 - **Keine `daten/fahrplan.csv`:** Die UI zeigt eine klare Anleitung, wie man den
